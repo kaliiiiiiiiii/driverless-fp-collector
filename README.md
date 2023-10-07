@@ -9,6 +9,7 @@ place the script at [src/fingerprint.js](src/fingerprint.js) on your WebPage
 ```js
 async function collect_fingerprint(click_elem=document.documentElement,check_bot=true, get_gl=true, check_worker=true){...}
 ```
+- `click_elem:HTMLElement=document.documentElement` element to expect click on
 - `check_bot=true` requires touch or click events
 - `get_gl=true` will unavoidably show warnings in the console [stack-overflow](https://stackoverflow.com/questions/39515468/how-do-i-disable-webgl-error-mesasges-warnings-in-the-console)
 - `check_worker=true` requires "blob:" urls to be allowed (`"Content-Security-Policy: worker-src 'self' blob:"` header might work)
