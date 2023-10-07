@@ -265,8 +265,7 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
     var promise = new Promise((resolve) => {
         iframe.addEventListener("load", () => {resolve()})
         })
-    if(document.body){document.body.append(iframe)}
-    else{document.body(iframe)}
+    document.body.appendChild(iframe)
     await promise
 
     const data = {
@@ -325,6 +324,7 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
 		"audioContext": audio_context(),
 		"is_bot":undefined
     }
+    document.body.removeChild(iframe)
 	if(check_worker){
 		data["stack_worker"] = await get_worker_response(get_stack)
 		data["timing_worker"] = await get_worker_response(getTimingResolution)
