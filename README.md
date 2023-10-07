@@ -48,7 +48,7 @@ Copyright and Author: \
 see [LICENSE.md](LICENSE.md)
 
 #### Third pary
-for the [demo](), [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer) and [jquery](https://github.com/jquery/jquery), which each have their own licence
+for files in [/docs](/docs) and [demo]() as well: [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer) and [jquery](https://github.com/jquery/jquery), which each have their own licence
 ## Disclaimer
 
 I am not responsible what you use the code for!!! Also no warranty!
@@ -57,4 +57,3 @@ I am not responsible what you use the code for!!! Also no warranty!
 
 Inspiration, code snippets, etc.
 * [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer)
-* 
