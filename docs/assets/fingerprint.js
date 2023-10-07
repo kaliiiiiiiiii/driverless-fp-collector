@@ -319,7 +319,7 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
             "window": get_obj_keys(iframe.contentWindow),
             "document": get_obj_keys(iframe.contentDocument),
             "speechSynthesis": await get_voices(),
-            "css":j(window.getComputedStyle(document.documentElement, '')),
+            "css":j(iframe.contentWindow.getComputedStyle(iframe.contentWindow.document.documentElement, '')),
             "keyboard":await get_keyboard(),
             "audioTypes":get_audio_types(),
             "videoTypes":get_video(),
