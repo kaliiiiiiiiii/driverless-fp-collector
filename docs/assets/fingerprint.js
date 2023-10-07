@@ -1,7 +1,7 @@
 // https://github.com/kaliiiiiiiiii/driverless-fp-collector
 
 // main function
-window.collect_fingerprint = async function collect_fingerprint(click_elem=document.documentElement,check_bot=true, get_gl=true, check_worker=true){
+async function collect_fingerprint(click_elem=document.documentElement,check_bot=true, get_gl=true, check_worker=true){
 	// utils
     function j(obj, max_depth=2){ // to json
         if (max_depth === 0){return undefined}
