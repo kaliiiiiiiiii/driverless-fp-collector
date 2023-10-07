@@ -11,8 +11,10 @@ async def get_fp(driver, script):
     await driver.get(os.getcwd() + "/docs/index.html")
     await asyncio.sleep(1)
     res = asyncio.create_task(driver.execute_async_script(script, timeout=120))
-    await asyncio.sleep(1)
     elem = await driver.find_element(By.ID, "get-fp")
+    await asyncio.sleep(0.5)
+    await elem.click(move_to=False)
+    await asyncio.sleep(0.5)
     await elem.click(move_to=False)
     res = await res
     res = json.loads(res)

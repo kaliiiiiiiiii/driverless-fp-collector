@@ -226,10 +226,16 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
                 is_touch = true
                  e = e.touches[0] || e.changedTouches[0];}
             var is_bot = (e.pageY == e.screenY && e.pageX == e.screenX)
-            if ((1 >= outerHeight - innerHeight && is_bot) || (is_touch && navigator.userAgentData.mobile)){ // fullscreen
-                is_bot = "maybe"
+            if (is_bot && 1 >= outerHeight - innerHeight){ // fullscreen
+                is_bot = false
             }
-            if (!e.isTrusted){is_bot = true}
+            if(is_bot && is_touch && navigator.userAgentData.mobile){
+                is_bot = "maybe" // mobile touch can have e.pageY == e.screenY && e.pageX == e.screenX
+            }
+            if(is_touch == false && navigator.userAgentData.mobile === true){
+                is_bot = "maybe" // mouse on mobile is suspicious
+            }
+            if (e.isTrusted === false){is_bot = true}
             if (check_worker){
                 worker_ua = await get_worker_response(get_useragent)
                 if (worker_ua !== navigator.userAgent){
