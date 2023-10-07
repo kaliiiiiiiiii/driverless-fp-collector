@@ -62,3 +62,4 @@ I am not responsible what you use the code for!!! Also no warranty!
 
 Inspiration, code snippets, etc.
 * [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer)
+* [jquery](https://github.com/jquery/jquery)

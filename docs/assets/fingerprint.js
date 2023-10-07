@@ -258,86 +258,91 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
             return res
         }
     }
-    const iframe = document.createElement("iframe")
-    iframe.src = "about:blank"
-    iframe.height = "0"
-    iframe.width = "0"
-    var promise = new Promise((resolve) => {
-        iframe.addEventListener("load", () => {resolve()})
-        })
-    document.body.appendChild(iframe)
-    await promise
 
-    const data = {
-        // navigator
-        "appCodeName":navigator.appCodeName,
-        "appName":navigator.appName,
-        "appVersion":navigator.appVersion,
-        "cookieEnabled":navigator.cookieEnabled,
-        "deviceMemory":navigator.deviceMemory,
-        "doNotTrack":navigator.doNotTrack,
-        "hardwareConcurrency":navigator.hardwareConcurrency,
-        "language": navigator.language,
-        "languages":navigator.languages,
-        "maxTouchPoints": navigator.maxTouchPoints,
-        "pdfViewerEnabled":navigator.pdfViewerEnabled,
-        "platform":navigator.platform,
-        "product":navigator.product,
-        "productSub":navigator.productSub,
-        "userAgent":navigator.userAgent,
-        "vendor":navigator.vendor,
-        "vendorSub":navigator.vendorSub,
-        "webdiver":navigator.webdriver,
-		"devicePixelRatio":window.devicePixelRatio,
-		"innerWidth":window.innerWidth,
-		"innerHeight":window.innerHeight,
-		"outerWidth": window.outerHeight,
-		"outerHeight":window.outerHeight,
-        // jsonified
-        "screen": j(screen),
-        "connection":j(navigator.connection),
-        "plugins":j(navigator.plugins, 3),
-        "userActivation":j(navigator.userActivation),
-		"chrome.app":chrome.app ? j(chrome.app)  : undefined,
-        // processed
-        "wow64":navigator.userAgent.indexOf('WOW64')>-1,
-        "HighEntropyValues":j(await navigator.userAgentData.getHighEntropyValues(
-            ["architecture",
-            "model",
-            "platformVersion",
-            "bitness",
-            "uaFullVersion",
-            "fullVersionList"]), 3),
-		"darkmode":window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches,
-        "availabeFonts":await listFonts(),
-        "stack_native":get_stack(),
-		"timing_native":getTimingResolution(),
-		"permissions":await get_permissions(),
-		"navigator": get_obj_keys(navigator),
-		"window": get_obj_keys(iframe.contentWindow),
-		"document": get_obj_keys(iframe.contentDocument),
-		"speechSynthesis": await get_voices(),
-		"css":j(window.getComputedStyle(document.documentElement, '')),
-		"keyboard":await get_keyboard(),
-		"audioTypes":get_audio_types(),
-		"videoTypes":get_video(),
-		"audioContext": audio_context(),
-		"is_bot":undefined
+    if(window.chrome){
+        const iframe = document.createElement("iframe")
+        iframe.src = "about:blank"
+        iframe.height = "0"
+        iframe.width = "0"
+        var promise = new Promise((resolve) => {
+            iframe.addEventListener("load", () => {resolve()})
+            })
+        document.body.appendChild(iframe)
+        await promise
+
+        const data = {
+            // navigator
+            "appCodeName":navigator.appCodeName,
+            "appName":navigator.appName,
+            "appVersion":navigator.appVersion,
+            "cookieEnabled":navigator.cookieEnabled,
+            "deviceMemory":navigator.deviceMemory,
+            "doNotTrack":navigator.doNotTrack,
+            "hardwareConcurrency":navigator.hardwareConcurrency,
+            "language": navigator.language,
+            "languages":navigator.languages,
+            "maxTouchPoints": navigator.maxTouchPoints,
+            "pdfViewerEnabled":navigator.pdfViewerEnabled,
+            "platform":navigator.platform,
+            "product":navigator.product,
+            "productSub":navigator.productSub,
+            "userAgent":navigator.userAgent,
+            "vendor":navigator.vendor,
+            "vendorSub":navigator.vendorSub,
+            "webdiver":navigator.webdriver,
+            "devicePixelRatio":window.devicePixelRatio,
+            "innerWidth":window.innerWidth,
+            "innerHeight":window.innerHeight,
+            "outerWidth": window.outerHeight,
+            "outerHeight":window.outerHeight,
+            // jsonified
+            "screen": j(screen),
+            "connection":j(navigator.connection),
+            "plugins":j(navigator.plugins, 3),
+            "userActivation":j(navigator.userActivation),
+            "chrome.app":chrome.app ? j(chrome.app)  : undefined,
+            // processed
+            "wow64":navigator.userAgent.indexOf('WOW64')>-1,
+            "HighEntropyValues":j(await navigator.userAgentData.getHighEntropyValues(
+                ["architecture",
+                "model",
+                "platformVersion",
+                "bitness",
+                "uaFullVersion",
+                "fullVersionList"]), 3),
+            "darkmode":window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches,
+            "availabeFonts":await listFonts(),
+            "stack_native":get_stack(),
+            "timing_native":getTimingResolution(),
+            "permissions":await get_permissions(),
+            "navigator": get_obj_keys(navigator),
+            "window": get_obj_keys(iframe.contentWindow),
+            "document": get_obj_keys(iframe.contentDocument),
+            "speechSynthesis": await get_voices(),
+            "css":j(window.getComputedStyle(document.documentElement, '')),
+            "keyboard":await get_keyboard(),
+            "audioTypes":get_audio_types(),
+            "videoTypes":get_video(),
+            "audioContext": audio_context(),
+            "is_bot":undefined,
+            "status":"pass"
+        }
+        document.body.removeChild(iframe)
+        if(check_worker){
+            data["stack_worker"] = await get_worker_response(get_stack)
+            data["timing_worker"] = await get_worker_response(getTimingResolution)
+        }
+        if (check_bot){data["is_bot"] = await ensure_no_bot(check_worker,click_elem)}
+        if (get_gl){
+            const gl = document.createElement("canvas").getContext("webgl");
+            const gl2 = document.createElement("canvas").getContext('webgl2')
+            const gl_experimental = document.createElement("canvas").getContext( "experimental-webgl")
+            data["gl"]=get_gl_infos(gl),
+            data["gl2"]=get_gl_infos(gl2)
+            data["gl_experimental"]=get_gl_infos(gl2)
+        }
+
+        return data
     }
-    document.body.removeChild(iframe)
-	if(check_worker){
-		data["stack_worker"] = await get_worker_response(get_stack)
-		data["timing_worker"] = await get_worker_response(getTimingResolution)
-	}
-	if (check_bot){data["is_bot"] = await ensure_no_bot(check_worker,click_elem)}
-	if (get_gl){
-		const gl = document.createElement("canvas").getContext("webgl");
-		const gl2 = document.createElement("canvas").getContext('webgl2')
-		const gl_experimental = document.createElement("canvas").getContext( "experimental-webgl")
-		data["gl"]=get_gl_infos(gl),
-		data["gl2"]=get_gl_infos(gl2)
-		data["gl_experimental"]=get_gl_infos(gl2)
-	}
-
-    return data
+    else{return {"status":"not chromium"}}
 }

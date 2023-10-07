@@ -2210,6 +2210,7 @@
         "state": "running"
     },
     "is_bot": false,
+    "status": "pass",
     "stack_worker": [
         7049,
         6344,
