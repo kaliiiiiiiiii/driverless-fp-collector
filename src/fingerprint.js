@@ -63,6 +63,7 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
             function (resolve, reject) {
                 var speech = speechSynthesis.getVoices()
                 if (speech.length === 0){
+                    setTimeout(() => {resolve([])}, 2000) // in case voices are actually 0 and already have been loaded
                     speechSynthesis.addEventListener("voiceschanged", () => {
                     resolve(speechSynthesis.getVoices())})
                 }
