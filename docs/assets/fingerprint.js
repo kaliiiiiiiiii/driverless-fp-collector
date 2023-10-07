@@ -238,10 +238,10 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
             }
 
             callback(is_bot)
-            click_elem.removeEventListener("click", self)
+            click_elem.removeEventListener("mousedown", self)
             click_elem.removeEventListener("touchstart", self)
         }
-        click_elem.addEventListener("click", on_click)
+        click_elem.addEventListener("mousedown", on_click)
         click_elem.addEventListener("touchstart", on_click)
         return _promise
     };
