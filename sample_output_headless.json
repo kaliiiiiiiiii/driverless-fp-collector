@@ -44,8 +44,8 @@
     },
     "connection": {
         "effectiveType": "3g",
-        "rtt": 700,
-        "downlink": 1.45,
+        "rtt": 900,
+        "downlink": 1.3,
         "saveData": false
     },
     "plugins": {

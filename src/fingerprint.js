@@ -269,9 +269,8 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
     async function get_webgpu_infos(){
         if(navigator.gpu){
             const adapter = await navigator.gpu.requestAdapter()
-            if(adapter){const info = await adapter.requestAdapterInfo()}
-            else{const info = {}}
-            const info = await adapter.requestAdapterInfo()
+            var info = {}
+            if(adapter){info = await adapter.requestAdapterInfo()}
             var res = {...j(adapter), ...j(info)}
             return res
         }
