@@ -4,6 +4,9 @@
 
 * fetch fingerprint for [`selenium-driverless`](https://github.com/kaliiiiiiiiii/Selenium-Driverless) (applying fingerprints not yet implemented)
 
+### Feel free to contribute!
+See dev-branch for the latest features.
+
 ### Usage
 place the script at [src/fingerprint.js](src/fingerprint.js) on your WebPage
 ```js
