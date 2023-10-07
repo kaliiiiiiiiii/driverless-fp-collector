@@ -42,14 +42,14 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
         }
         else if (obj){
             var res = {}
-            for(var key in obj){
+            get_obj_keys(obj).forEach((key) => {
                 var value = obj[key]
                 if (typeof value === 'object'){value = j(value, max_depth -1)}
                 var _type = typeof value
                 if (obj !== undefined && !["function"].includes(_type)){
                     res[key] = value
                 }
-            }
+            })
             return res
         }
 
