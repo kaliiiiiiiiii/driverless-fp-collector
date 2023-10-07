@@ -21,14 +21,16 @@ async def get_fp(driver, script):
 
 async def get_fp_native(script):
     async with webdriver.Chrome(debug=True) as driver:
-        return await get_fp(driver, script)
+        res = await get_fp(driver, script)
+        return res
 
 
 async def get_fp_headless(script):
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     async with webdriver.Chrome(debug=True, options=options) as headles_driver:
-        return await get_fp(headles_driver, script)
+        res = await get_fp(headles_driver, script)
+        return res
 
 
 async def main():
