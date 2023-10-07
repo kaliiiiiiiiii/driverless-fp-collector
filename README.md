@@ -28,7 +28,7 @@ res = handler()
 res.catch((e) => {console.error(e))
 ```
 
-You can find a example output at [sample_output.json](sample_output.json)
+You can **checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)** or find a example output at [sample_output.json](sample_output.json)
 ## Help
 
 Please feel free to open an issue or fork! \
