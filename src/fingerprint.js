@@ -61,15 +61,14 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
     function get_speech() {
         return new Promise(
             function (resolve, reject) {
-                let synth = window.speechSynthesis;
-                let id;
+                var speech = speechSynthesis.getVoices()
+                if (speech.length === 0){
+                    setTimeout(() => {resolve([])}, 2000) // in case voices are actually 0 and already have been loaded
+                    speechSynthesis.addEventListener("voiceschanged", () => {
+                    resolve(speechSynthesis.getVoices())})
+                }
+                else{resolve(speech)}
 
-                id = setInterval(() => {
-                    if (synth.getVoices().length !== 0) {
-                        resolve(synth.getVoices());
-                        clearInterval(id);
-                    }
-                }, 10);
             }
         )
     }
@@ -231,10 +230,12 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
     }
 
     async function get_voices(){
-        var res = []
-        var voices = await get_speech()
-        voices.forEach((value) => {res.push(j(value))})
-        return res
+        if (window.speechSynthesis && speechSynthesis.addEventListener){
+            var res = []
+            var voices = await get_speech()
+            voices.forEach((value) => {res.push(j(value))})
+            return res
+        }
     }
 
     async function get_keyboard(){

@@ -43,9 +43,9 @@
         "isExtended": true
     },
     "connection": {
-        "effectiveType": "3g",
-        "rtt": 900,
-        "downlink": 1.3,
+        "effectiveType": "4g",
+        "rtt": 100,
+        "downlink": 1.55,
         "saveData": false
     },
     "plugins": {
