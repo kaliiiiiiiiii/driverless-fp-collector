@@ -1,6 +1,6 @@
-# driverless-fp-collector
+# [driverless-fp-collector]((https://kaliiiiiiiiii.github.io/driverless-fp-collector/))
 
-** checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)
+**checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)**
 
 * fetch fingerprint for [`selenium-driverless`](https://github.com/kaliiiiiiiiii/Selenium-Driverless) (applying fingerprints not yet implemented)
 
