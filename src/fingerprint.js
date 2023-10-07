@@ -258,6 +258,16 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
             return res
         }
     }
+    const iframe = document.createElement("iframe")
+    iframe.src = "about:blank"
+    iframe.height = "0"
+    iframe.width = "0"
+    var promise = new Promise((resolve) => {
+        iframe.addEventListener("load", () => {resolve()})
+        })
+    if(document.body){document.body.append(iframe)}
+    else{document.body(iframe)}
+    await promise
 
     const data = {
         // navigator
@@ -305,8 +315,8 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
 		"timing_native":getTimingResolution(),
 		"permissions":await get_permissions(),
 		"navigator": get_obj_keys(navigator),
-		"window": get_obj_keys(window),
-		"document": get_obj_keys(document),
+		"window": get_obj_keys(iframe.contentWindow),
+		"document": get_obj_keys(iframe.contentDocument),
 		"speechSynthesis": await get_voices(),
 		"css":j(window.getComputedStyle(document.documentElement, '')),
 		"keyboard":await get_keyboard(),
