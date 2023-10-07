@@ -10,7 +10,7 @@ import json
 async def get_fp(driver, script):
     await driver.get(os.getcwd() + "/docs/index.html")
     await asyncio.sleep(1)
-    res = asyncio.create_task(driver.execute_async_script(script, timeout=60))
+    res = asyncio.create_task(driver.execute_async_script(script, timeout=120))
     await asyncio.sleep(1)
     elem = await driver.find_element(By.ID, "get-fp")
     await elem.click(move_to=False)
@@ -20,7 +20,7 @@ async def get_fp(driver, script):
 
 
 async def get_fp_native(script):
-    async with webdriver.Chrome(debug=True) as driver:
+    async with webdriver.Chrome(debug=False) as driver:
         res = await get_fp(driver, script)
         return res
 
@@ -28,16 +28,13 @@ async def get_fp_native(script):
 async def get_fp_headless(script):
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
-    async with webdriver.Chrome(debug=True, options=options) as headles_driver:
+    async with webdriver.Chrome(debug=False, options=options) as headles_driver:
         res = await get_fp(headles_driver, script)
         return res
 
 
 async def main():
-    with open(os.getcwd() + "/src/fingerprint.js", "r", encoding="utf-8") as f:
-        fingerprint_js = f.read()
-
-    script = fingerprint_js + """
+    script = """
     // execute
     async function handler(){
         data = collect_fingerprint(document.querySelector("#get-fp"),true, true, true);
@@ -45,6 +42,7 @@ async def main():
         data = await data
         console.log(data);
         return JSON.stringify(data)
+        debugger
     }
     res = handler()
     res.catch((e) => {throw e})
