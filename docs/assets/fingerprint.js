@@ -1,20 +1,58 @@
 // https://github.com/kaliiiiiiiiii/driverless-fp-collector
 
+/*
+MIT License
+
+Copyright (c) 2023 Aurin Aegerter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 // main function
 async function collect_fingerprint(click_elem=document.documentElement,check_bot=true, get_gl=true, check_worker=true){
 	// utils
     function j(obj, max_depth=2){ // to json
         if (max_depth === 0){return undefined}
-        var res = {}
-        for(var key in obj){
-            var value = obj[key]
-            if (typeof value === 'object'){value = j(value, max_depth -1)}
-            var _type = typeof value
-            if (obj !== undefined && !["function"].includes(_type)){
-                res[key] = value
-            }
+        if (obj && obj.constructor && typeof obj.constructor.length == "number" && obj.constructor.name.includes("Array")){
+            var res = []
+            Object.values(obj).forEach((value) => {
+                if (typeof value === 'object'){value = j(value, max_depth -1)}
+                var _type = typeof value
+                if (!["function"].includes(_type)){
+                    res.push(value)
+                }
+            })
+            return res
         }
-        if (Object.keys(res).length !== 0){return res}
+        else if (obj){
+            var res = {}
+            for(var key in obj){
+                var value = obj[key]
+                if (typeof value === 'object'){value = j(value, max_depth -1)}
+                var _type = typeof value
+                if (obj !== undefined && !["function"].includes(_type)){
+                    res[key] = value
+                }
+            }
+            return res
+        }
+
     }
 
     function get_worker_response(fn){
@@ -51,11 +89,11 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
     }
 
     function get_obj_keys(obj){
-        var res = []
-        for(var key in obj){
-            if (isNaN(parseInt(key))){res.push(key)}
+        var res = new Set(Object.getOwnPropertyNames(obj))
+        for (var prop in obj) {
+            res.add(prop)
         }
-        return res
+        return [...res]
     }
 
     function get_speech() {
@@ -180,14 +218,15 @@ async function collect_fingerprint(click_elem=document.documentElement,check_bot
         var _promise = new Promise((resolve, reject) => {
             callback = resolve
           });
-
         var get_useragent = function(){return navigator.userAgent}
 
         var on_click = async function(e){
+            var is_touch = false
             if(e.type == 'touchstart'){
+                is_touch = true
                  e = e.touches[0] || e.changedTouches[0];}
             var is_bot = (e.pageY == e.screenY && e.pageX == e.screenX)
-            if (1 >= outerHeight - innerHeight && is_bot){ // fullscreen
+            if ((1 >= outerHeight - innerHeight && is_bot) || (is_touch && navigator.userAgentData.mobile)){ // fullscreen
                 is_bot = "maybe"
             }
             if (!e.isTrusted){is_bot = true}
