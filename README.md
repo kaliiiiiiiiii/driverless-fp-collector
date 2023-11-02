@@ -1,6 +1,8 @@
-# [driverless-fp-collector](<(https://kaliiiiiiiiii.github.io/driverless-fp-collector/)>)
+# FP-Collector
 
-**checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)**
+Simple script for collecting some unique information from browsers
+
+**checkout the [demo](https://peet.ws/driverless-fp-collector/)**
 
 -   fetch fingerprint for [`selenium-driverless`](https://github.com/kaliiiiiiiiii/Selenium-Driverless) (applying fingerprints not yet implemented)
 
@@ -10,12 +12,10 @@ See dev-branch for the latest features.
 
 ### Usage
 
-<!-- place the script at [src/fingerprint.js](src/fingerprint.js) on your WebPage -->
-
 You can embed the script into your website using a free CDN.
 
 ```html
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/fp-collector@latest/dist/bundle.js"><script>
+<script type="text/javascript" src="://unpkg.com/fp-collector"><script>
 ```
 
 ```js
@@ -35,15 +35,12 @@ const fp = await getFingerprint(
 ```js
 // example script
 async function handler() {
-    const data = await getFingerprint(document.documentElement, true, true, true);
-    console.log(data);
-
+    const data = await getFingerprint(document.querySelector("button"), true, true, false);
     return JSON.stringify(data);
-    // or send back to your server//backend//DataBase
 }
 ```
 
-You can **checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)** or find a example output at [sample_output.json](sample_output.json)
+You can find some example output at [sample_output.json](sample_output.json)
 
 ## Help
 
@@ -68,7 +65,8 @@ Cleanups, NPM:
 
 ## License
 
-see [LICENSE.md](LICENSE.md)
+fp-collector is licensed under the MIT license!
+See [LICENSE.md](LICENSE.md)
 
 #### Third pary
 
