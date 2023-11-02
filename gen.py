@@ -36,6 +36,7 @@ async def get_fp_headless(script):
 
 
 async def main():
+    os.system("npm run build")
     script = """
     // execute
     async function handler(){

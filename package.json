@@ -1,11 +1,11 @@
 {
     "name": "fp-collector",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "**checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)**",
     "main": "./dist/bundle.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "browserify src/index.js -o dist/bundle.js && uglifyjs dist/bundle.js --output dist/bundle.js"
+        "build": "browserify src/index.js -o dist/bundle.js && uglifyjs dist/bundle.js --output dist/bundle.js && shx cp dist/bundle.js docs/bundle.js"
     },
     "keywords": [],
     "author": "kaliii & peet",
