@@ -36,10 +36,11 @@ async def get_fp_headless(script):
 
 
 async def main():
+    os.system("npm run build")
     script = """
     // execute
     async function handler(){
-        data = collect_fingerprint(document.querySelector("#get-fp"),true, true, true);
+        data = getFingerprint(document.querySelector("#get-fp"),true, true, true);
         document.documentElement.click()
         data = await data
         console.log(data);
@@ -52,12 +53,13 @@ async def main():
     """
 
     fp_native, fp_headless = await asyncio.gather(
-        get_fp_native(script),
-        get_fp_headless(script)
+        get_fp_native(script), get_fp_headless(script)
     )
     with open(os.getcwd() + "/sample_output.json", "w+", encoding="utf-8") as f:
         f.write(json.dumps(fp_native, indent=4))
-    with open(os.getcwd() + "/sample_output_headless.json", "w+", encoding="utf-8") as f:
+    with open(
+        os.getcwd() + "/sample_output_headless.json", "w+", encoding="utf-8"
+    ) as f:
         f.write(json.dumps(fp_headless, indent=4))
 
 
