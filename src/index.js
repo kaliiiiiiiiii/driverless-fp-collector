@@ -1,3 +1,3 @@
-const collect = require("./fingerprint");
+const collect = require("./fingerprint.js");
 
-global.window.getFingerprint = collect;
+window.getFingerprint = collect;

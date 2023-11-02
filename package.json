@@ -5,7 +5,7 @@
     "main": "./dist/bundle.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "browserify src/index.js -o dist/bundle.js && uglifyjs dist/bundle.js -c -m --mangle-props --output dist/bundle.js"
+        "build": "browserify src/index.js -o dist/bundle.js && uglifyjs dist/bundle.js --output dist/bundle.js"
     },
     "keywords": [],
     "author": "kaliii & peet",

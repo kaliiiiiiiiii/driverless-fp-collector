@@ -27,7 +27,7 @@ SOFTWARE.
 const { fonts, permissions, audioTypes, videoTypes } = require("./constants");
 
 // main function
-async function collect_fingerprint(
+async function getFingerprint(
     click_elem = document.documentElement,
     check_bot = true,
     get_gl = true,
@@ -448,4 +448,4 @@ async function collect_fingerprint(
     }
 }
 
-module.exports = collect_fingerprint;
+module.exports = getFingerprint;
