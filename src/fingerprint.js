@@ -245,7 +245,7 @@ async function getFingerprint(
                 is_bot = true;
             }
             if (check_worker) {
-                worker_ua = await get_worker_response(navigator.userAgent);
+                worker_ua = await get_worker_response(function(){return navigator.userAgent});
                 if (worker_ua !== navigator.userAgent) {
                     is_bot = true;
                 }
