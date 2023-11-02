@@ -2,7 +2,7 @@
 
 Simple script for collecting some unique information from browsers
 
-**checkout the [demo](https://github.com/kaliiiiiiiiii/Selenium-Driverless)**
+**checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)**
 
 -   fetch fingerprint for [`selenium-driverless`](https://github.com/kaliiiiiiiiii/Selenium-Driverless) (applying fingerprints not yet implemented)
 
