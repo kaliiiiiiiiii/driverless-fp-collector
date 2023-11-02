@@ -2,7 +2,7 @@
 
 Simple script for collecting some unique information from browsers
 
-**checkout the [demo](https://github.com/kaliiiiiiiiii/Selenium-Driverless)**
+**checkout the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/)**
 
 -   fetch fingerprint for [`selenium-driverless`](https://github.com/kaliiiiiiiiii/Selenium-Driverless) (applying fingerprints not yet implemented)
 
@@ -70,7 +70,7 @@ See [LICENSE.md](LICENSE.md)
 
 #### Third pary
 
-for files in [/docs](/docs) and [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/) as well: [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer) and [jquery](https://github.com/jquery/jquery), which each have their own licence
+for the [demo](https://kaliiiiiiiiii.github.io/driverless-fp-collector/) as well: [jquery.json-viewer](https://github.com/abodelot/jquery.json-viewer) and [jquery](https://github.com/jquery/jquery), which each have their own licence
 
 ## Disclaimer
 
