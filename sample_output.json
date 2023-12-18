@@ -45,7 +45,7 @@
     "connection": {
         "effectiveType": "4g",
         "rtt": 100,
-        "downlink": 1.65,
+        "downlink": 1.6,
         "saveData": false
     },
     "plugins": [

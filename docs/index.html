@@ -28,7 +28,17 @@
 
             getFP();
             async function getFP() {
-                const json = await getFingerprint(document.querySelector("#get-fp"), true, false);
+                var elem = document.documentElement;
+                function callback(e){
+                    window.fp_click_callback(e)
+                    elem.removeEventListener("mousedown", this);
+                    elem.removeEventListener("touchstart", this);
+                }
+                var json = getFingerprint(document.querySelector("#get-fp"), true, true);
+                elem.addEventListener("mousedown", callback);
+                elem.addEventListener("touchstart", callback);
+                json = await json
+
                 showJSON(json);
                 document.querySelector("#json-renderer > ul").style.display = "";
             }

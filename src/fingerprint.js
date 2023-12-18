@@ -214,49 +214,35 @@ async function getFingerprint(
         return valA;
     }
 
-    function ensure_no_bot(check_worker, click_elem) {
-        if (!click_elem) {
-            click_elem = document.documentElement;
+    async function ensure_no_bot(check_worker, click_promise) {
+        e = await globalThis.fp_click_promise
+        globalThis.fp_click_promise = new Promise((resolve, reject)=>{globalThis.fp_click_callback = resolve})
+        var is_touch = false;
+        if (e.type == "touchstart") {
+            is_touch = true;
+            e = e.touches[0] || e.changedTouches[0];
         }
-        var callback;
-        var _promise = new Promise((resolve, reject) => {
-            callback = resolve;
-        });
-
-        var on_click = async function (e) {
-            var is_touch = false;
-            if (e.type == "touchstart") {
-                is_touch = true;
-                e = e.touches[0] || e.changedTouches[0];
-            }
-            var is_bot = e.pageY == e.screenY && e.pageX == e.screenX;
-            if (is_bot && 1 >= outerHeight - innerHeight) {
-                // fullscreen
-                is_bot = false;
-            }
-            if (is_bot && is_touch && navigator.userAgentData.mobile) {
-                is_bot = "maybe"; // mobile touch can have e.pageY == e.screenY && e.pageX == e.screenX
-            }
-            if (is_touch == false && navigator.userAgentData.mobile === true) {
-                is_bot = "maybe"; // mouse on mobile is suspicious
-            }
-            if (e.isTrusted === false) {
+        var is_bot = e.pageY == e.screenY && e.pageX == e.screenX;
+        if (is_bot && 1 >= outerHeight - innerHeight) {
+            // fullscreen
+            is_bot = false;
+        }
+        if (is_bot && is_touch && navigator.userAgentData.mobile) {
+            is_bot = "maybe"; // mobile touch can have e.pageY == e.screenY && e.pageX == e.screenX
+        }
+        if (is_touch == false && navigator.userAgentData.mobile === true) {
+            is_bot = "maybe"; // mouse on mobile is suspicious
+        }
+        if (e.isTrusted === false) {
+            is_bot = true;
+        }
+        if (check_worker) {
+            worker_ua = await get_worker_response(function(){return navigator.userAgent});
+            if (worker_ua !== navigator.userAgent) {
                 is_bot = true;
             }
-            if (check_worker) {
-                worker_ua = await get_worker_response(function(){return navigator.userAgent});
-                if (worker_ua !== navigator.userAgent) {
-                    is_bot = true;
-                }
-            }
-
-            callback(is_bot);
-            click_elem.removeEventListener("mousedown", self);
-            click_elem.removeEventListener("touchstart", self);
         };
-        click_elem.addEventListener("mousedown", on_click);
-        click_elem.addEventListener("touchstart", on_click);
-        return _promise;
+        return is_bot
     }
 
     function get_gl_infos(gl) {
@@ -444,5 +430,7 @@ async function getFingerprint(
         return { status: "not chromium" };
     }
 }
+
+globalThis.fp_click_promise = new Promise((resolve, reject)=>{globalThis.fp_click_callback = resolve})
 
 module.exports = getFingerprint;

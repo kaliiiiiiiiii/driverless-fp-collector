@@ -40,8 +40,15 @@ async def main():
     script = """
     // execute
     async function handler(){
-        data = getFingerprint(document.querySelector("#get-fp"),true, true, true);
-        document.documentElement.click()
+        var elem = document.documentElement;
+        function callback(e){
+            window.fp_click_callback(e)
+            elem.removeEventListener("mousedown", this);
+            elem.removeEventListener("touchstart", this);
+        }
+        var data = getFingerprint(document.querySelector("#get-fp"), true, true);
+        elem.addEventListener("mousedown", callback);
+        elem.addEventListener("touchstart", callback);
         data = await data
         console.log(data);
         return JSON.stringify(data)

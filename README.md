@@ -19,24 +19,22 @@ You can embed the script into your website using a free CDN.
 ```
 
 ```js
-const fp = await getFingerprint(
-    (click_elem = document.querySelector("button")),
-    (get_gl = true),
-    (check_worker = true),
-);
+var elem = document.documentElement;
+function callback(e){
+    window.fp_click_callback(e)
+    elem.removeEventListener("mousedown", this);
+    elem.removeEventListener("touchstart", this);
+}
+var data = getFingerprint(document.querySelector("#get-fp"), true, false);
+elem.addEventListener("mousedown", callback);
+elem.addEventListener("touchstart", callback);
+data = await data
+// send_back(JSON.stringify(data)
 ```
 
 -   `click_elem:HTMLElement=document.documentElement` element to expect click on
 -   `get_gl=true` will unavoidably show warnings in the console [stack-overflow](https://stackoverflow.com/questions/39515468/how-do-i-disable-webgl-error-mesasges-warnings-in-the-console)
 -   `check_worker=true` requires `blob:` urls to be allowed (`"Content-Security-Policy: worker-src 'self' blob:"` header might work)
-
-```js
-// example script
-async function handler() {
-    const data = await getFingerprint(document.querySelector("button"), true, false);
-    return JSON.stringify(data);
-}
-```
 
 You can find some example output at [sample_output.json](sample_output.json)
 
