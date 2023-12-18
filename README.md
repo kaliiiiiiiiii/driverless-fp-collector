@@ -25,14 +25,16 @@ function callback(e){
     elem.removeEventListener("mousedown", this);
     elem.removeEventListener("touchstart", this);
 }
-var data = getFingerprint(document.querySelector("#get-fp"), true, false);
+var data = getFingerprint(true, false);
 elem.addEventListener("mousedown", callback);
 elem.addEventListener("touchstart", callback);
 data = await data
+// globalThis.on_fp_result
 // send_back(JSON.stringify(data)
 ```
-
--   `click_elem:HTMLElement=document.documentElement` element to expect click on
+```javascript
+async function getFingerprint(get_gl=true, check_worker=true){...}
+```
 -   `get_gl=true` will unavoidably show warnings in the console [stack-overflow](https://stackoverflow.com/questions/39515468/how-do-i-disable-webgl-error-mesasges-warnings-in-the-console)
 -   `check_worker=true` requires `blob:` urls to be allowed (`"Content-Security-Policy: worker-src 'self' blob:"` header might work)
 

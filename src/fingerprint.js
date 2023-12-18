@@ -28,7 +28,6 @@ const { fonts, permissions, audioTypes, videoTypes } = require("./constants");
 
 // main function
 async function getFingerprint(
-    click_elem = document.documentElement,
     get_gl = true,
     check_worker = true,
 ) {
@@ -416,7 +415,7 @@ async function getFingerprint(
             data["stack_worker"] = await get_worker_response(get_stack);
             data["timing_worker"] = await get_worker_response(getTimingResolution);
         }
-        data["is_bot"] = await ensure_no_bot(check_worker, click_elem);
+        data["is_bot"] = await ensure_no_bot(check_worker);
         if (get_gl) {
             const gl = document.createElement("canvas").getContext("webgl");
             const gl2 = document.createElement("canvas").getContext("webgl2");
@@ -424,7 +423,7 @@ async function getFingerprint(
             (data["gl"] = get_gl_infos(gl)), (data["gl2"] = get_gl_infos(gl2));
             data["gl_experimental"] = get_gl_infos(gl2);
         }
-
+        if(globalThis.on_fp_result){globalThis.on_fp_result(data)}
         return data;
     } else {
         return { status: "not chromium" };

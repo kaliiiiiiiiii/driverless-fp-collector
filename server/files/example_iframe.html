@@ -8,7 +8,22 @@
 <body>
     <iframe id="driverless-fp-collector" src="iframe.html" style="display:none"></iframe>
 	<script>
-		var elem = document.querySelector("#driverless-fp-collector")
+		async function handler(){
+			var iframeWindow = iframe.contentWindow
+			var elem = document.documentElement;
+			function callback(e){
+				iframeWindow.fp_click_callback(e)
+				elem.removeEventListener("mousedown", this);
+				elem.removeEventListener("touchstart", this);
+			}
+			var data = iframeWindow.getFingerprint(true, true);
+			elem.addEventListener("mousedown", callback);
+			elem.addEventListener("touchstart", callback);
+			data = await data
+			console.log(data);
+		};
+		var iframe = document.querySelector("#driverless-fp-collector")
+		iframe.addEventListener("load",handler)
 	</script>
 	<h2>Welcome</h2>
 	<h5>Simple list</h5>

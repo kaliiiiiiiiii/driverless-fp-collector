@@ -46,7 +46,7 @@ async def main():
             elem.removeEventListener("mousedown", this);
             elem.removeEventListener("touchstart", this);
         }
-        var data = getFingerprint(document.querySelector("#get-fp"), true, true);
+        var data = getFingerprint(true, true);
         elem.addEventListener("mousedown", callback);
         elem.addEventListener("touchstart", callback);
         data = await data

@@ -34,7 +34,8 @@
                     elem.removeEventListener("mousedown", this);
                     elem.removeEventListener("touchstart", this);
                 }
-                var json = getFingerprint(document.querySelector("#get-fp"), true, true);
+                globalThis.on_fp_result = console.log
+                var json = getFingerprint(true, true);
                 elem.addEventListener("mousedown", callback);
                 elem.addEventListener("touchstart", callback);
                 json = await json
