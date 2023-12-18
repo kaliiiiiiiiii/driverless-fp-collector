@@ -28,7 +28,7 @@
 
             getFP();
             async function getFP() {
-                const json = await getFingerprint(document.querySelector("#get-fp"), true, true, false);
+                const json = await getFingerprint(document.querySelector("#get-fp"), true, false);
                 showJSON(json);
                 document.querySelector("#json-renderer > ul").style.display = "";
             }

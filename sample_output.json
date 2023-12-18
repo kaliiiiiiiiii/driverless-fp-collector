@@ -45,7 +45,7 @@
     "connection": {
         "effectiveType": "4g",
         "rtt": 100,
-        "downlink": 1.45,
+        "downlink": 1.65,
         "saveData": false
     },
     "plugins": [
@@ -3166,9 +3166,9 @@
         "\uff2d\uff33 \uff30\u660e\u671d"
     ],
     "stack_native": [
-        12564,
+        12565,
         11422,
-        80.01401050788091
+        79.94400699912511
     ],
     "timing_native": 0.09999990463256836,
     "permissions": {

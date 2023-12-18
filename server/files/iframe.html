@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+         <script type="text/javascript" src="bundle.js"></script>
+    </head>
+    <body>
+        <div>
+            <h4>driverless-fp-collector demo</h4>
+            <a href="https://github.com/kaliiiiiiiiii/driverless-fp-collector">Source-Code</a>
+        </div>
+        <script>
+            const showJSON = (json) =>
+                $("#json-renderer").jsonViewer(json, { collapsed: true, withQuotes: false, withLinks: false });
+
+            getFP();
+            async function getFP() {
+                const json = await getFingerprint(document.querySelector("#get-fp"), true, false);
+                showJSON(json);
+                document.querySelector("#json-renderer > ul").style.display = "";
+            }
+        </script>
+    </body>
+</html>

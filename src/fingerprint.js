@@ -29,7 +29,6 @@ const { fonts, permissions, audioTypes, videoTypes } = require("./constants");
 // main function
 async function getFingerprint(
     click_elem = document.documentElement,
-    check_bot = true,
     get_gl = true,
     check_worker = true,
 ) {
@@ -431,9 +430,7 @@ async function getFingerprint(
             data["stack_worker"] = await get_worker_response(get_stack);
             data["timing_worker"] = await get_worker_response(getTimingResolution);
         }
-        if (check_bot) {
-            data["is_bot"] = await ensure_no_bot(check_worker, click_elem);
-        }
+        data["is_bot"] = await ensure_no_bot(check_worker, click_elem);
         if (get_gl) {
             const gl = document.createElement("canvas").getContext("webgl");
             const gl2 = document.createElement("canvas").getContext("webgl2");
