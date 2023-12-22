@@ -6,8 +6,26 @@ from concurrent import futures
 import orjson
 from aiohttp import web
 import datetime
+import pymongo.errors
+import ssl
 
 _dir = os.path.dirname(os.path.abspath(__file__))
+
+@web.middleware
+async def static_headers(request: web.Request, handler):
+    url = "http://10.165.180.101"
+    response: web.Response = await handler(request)
+    resource_name = request.match_info.route.name
+    #if resource_name and resource_name.startswith('static'):
+    response.headers.setdefault('Accept-CH', 'sec-ch-ua-platform, sec-ch-ua-arch, sec-ch-ua-model, '
+                                                'sec-ch-ua-platform-version, sec-ch-ua-full-version, '
+                                                'sec-ch-ua-bitness, sec-ch-ua-full-version-list, sec-ch-dpr')
+    response.headers.setdefault("Referrer-Policy",'no-referrer')
+    response.headers.setdefault("permissions-policy",f'ch-ua-bitness=(self), ch-ua-arch=(self), ch-ua-model=(self), '
+                                                     f'ch-ua-platform=(self), ch-ua-platform-version=(self), '
+                                                     f'ch-ua-full-version=(self), ch-ua-full-version-list=(self), '
+                                                     f'ch-dpr=(self)')
+    return response
 
 
 class DataBase:
@@ -18,6 +36,7 @@ class DataBase:
         self._entries = self.db["entries"]
         self._loop = asyncio.get_running_loop()
         self._pool = futures.ThreadPoolExecutor(max_workers=max_workers)
+        # await self.entries.create_index({"ip": 1}, {"unique": "true"})
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -61,16 +80,19 @@ class Server:
         await self.db.__aexit__(None, None, None)
 
     def run(self):
-        app = web.Application()
+        app = web.Application(middlewares=[static_headers])
         app.add_routes(self.routes)
         app.add_routes([
-            web.static('/', f"{_dir}/files"),
+            web.static('/', f"{_dir}/files", ),
             web.post('/api/v1/logger', self.api_log)
         ])
 
         app.on_cleanup.append(self._cleanup)
         app.on_startup.append(self._init)
-        web.run_app(app, host="localhost")
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(r'D:\Projects\PyCharm\driverless-fp-collector\server\test_certs\private.key',
+                                    "D:\Projects\PyCharm\driverless-fp-collector\server\test_certs\selfsigned.crt")
+        web.run_app(app, host="0.0.0.0", ssl_context=ssl_context)
 
     # noinspection PyMethodParameters
     @routes.get("/")
@@ -80,7 +102,10 @@ class Server:
     async def api_log(self, request: web.BaseRequest):
         data = await request.read()
         ip = request.remote
-        await self.db.add_fp_entry(ip, data)
+        try:
+            await self.db.add_fp_entry(ip, data)
+        except pymongo.errors.DuplicateKeyError:
+            return web.Response(text='Fingerprint already in database', status=500)
         return web.Response(text='OK')
 
     @property
