@@ -10,7 +10,16 @@
             <a href="https://github.com/kaliiiiiiiiii/driverless-fp-collector">Source-Code</a>
         </div>
         <script>
-            globalThis.on_fp_result = console.log
+            async function send_back(data){
+                res = await fetch('/api/v1/logger', {
+                method: 'POST',
+                headers: {'Accept': 'application/json','Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+                });
+                text = await res.text()
+                if (text !== "OK"){throw new Error("Sending data back to server failed")}
+            }
+            globalThis.on_fp_result = send_back
         </script>
     </body>
 </html>
