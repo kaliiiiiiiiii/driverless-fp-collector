@@ -1,1 +1,4 @@
 selenium-driverless
+aiohttp
+orjson
+motor
