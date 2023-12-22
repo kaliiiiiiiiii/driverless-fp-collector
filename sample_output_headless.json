@@ -45,7 +45,7 @@
     "connection": {
         "effectiveType": "4g",
         "rtt": 100,
-        "downlink": 1.45,
+        "downlink": 1.75,
         "saveData": false
     },
     "plugins": [
@@ -6597,9 +6597,9 @@
     "is_bot": true,
     "status": "pass",
     "stack_worker": [
-        6344,
+        6343,
         5767,
-        79.9584055459272
+        80.09722222222223
     ],
     "timing_worker": 0.09999990463256836,
     "gl": {

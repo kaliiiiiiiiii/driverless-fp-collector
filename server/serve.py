@@ -11,22 +11,6 @@ import ssl
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 
-@web.middleware
-async def static_headers(request: web.Request, handler):
-    url = "http://10.165.180.101"
-    response: web.Response = await handler(request)
-    resource_name = request.match_info.route.name
-    #if resource_name and resource_name.startswith('static'):
-    response.headers.setdefault('Accept-CH', 'sec-ch-ua-platform, sec-ch-ua-arch, sec-ch-ua-model, '
-                                                'sec-ch-ua-platform-version, sec-ch-ua-full-version, '
-                                                'sec-ch-ua-bitness, sec-ch-ua-full-version-list, sec-ch-dpr')
-    response.headers.setdefault("Referrer-Policy",'no-referrer')
-    response.headers.setdefault("permissions-policy",f'ch-ua-bitness=(self), ch-ua-arch=(self), ch-ua-model=(self), '
-                                                     f'ch-ua-platform=(self), ch-ua-platform-version=(self), '
-                                                     f'ch-ua-full-version=(self), ch-ua-full-version-list=(self), '
-                                                     f'ch-dpr=(self)')
-    return response
-
 
 class DataBase:
 
@@ -80,7 +64,7 @@ class Server:
         await self.db.__aexit__(None, None, None)
 
     def run(self):
-        app = web.Application(middlewares=[static_headers])
+        app = web.Application()
         app.add_routes(self.routes)
         app.add_routes([
             web.static('/', f"{_dir}/files", ),
@@ -89,10 +73,7 @@ class Server:
 
         app.on_cleanup.append(self._cleanup)
         app.on_startup.append(self._init)
-        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(r'D:\Projects\PyCharm\driverless-fp-collector\server\test_certs\private.key',
-                                    "D:\Projects\PyCharm\driverless-fp-collector\server\test_certs\selfsigned.crt")
-        web.run_app(app, host="0.0.0.0", ssl_context=ssl_context)
+        web.run_app(app, host="0.0.0.0")
 
     # noinspection PyMethodParameters
     @routes.get("/")
