@@ -18,8 +18,8 @@
     <body>
         <div>
             <h3>driverless-fp-collector demo</h3>
-            <button id="get-fp" onclick="getFP()">Get Fingerprint</button>
             <a href="https://github.com/kaliiiiiiiiii/driverless-fp-collector">Source-Code</a>
+            <a4> | move or click to get a fingerprint</a4>
             <pre id="json-renderer"></pre>
         </div>
         <script>
@@ -33,11 +33,15 @@
                     window.fp_click_callback(e)
                     elem.removeEventListener("mousedown", this);
                     elem.removeEventListener("touchstart", this);
+                    elem.removeEventListener("touchmove", this);
+                    elem.removeEventListener("mousemove", this);
                 }
                 globalThis.on_fp_result = console.log
                 var json = getFingerprint(true, true);
                 elem.addEventListener("mousedown", callback);
                 elem.addEventListener("touchstart", callback);
+                elem.addEventListener("touchmove", callback);
+                elem.addEventListener("mousemove", callback);
                 json = await json
 
                 showJSON(json);

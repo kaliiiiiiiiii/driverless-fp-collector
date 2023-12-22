@@ -24,10 +24,14 @@ function callback(e){
     window.fp_click_callback(e)
     elem.removeEventListener("mousedown", this);
     elem.removeEventListener("touchstart", this);
+    elem.removeEventListener("touchmove", this);
+    elem.removeEventListener("mousemove", this);
 }
 var data = getFingerprint(true, false);
 elem.addEventListener("mousedown", callback);
 elem.addEventListener("touchstart", callback);
+elem.addEventListener("touchmove", callback);
+elem.addEventListener("mousemove", callback);
 data = await data
 // globalThis.on_fp_result
 // send_back(JSON.stringify(data)
