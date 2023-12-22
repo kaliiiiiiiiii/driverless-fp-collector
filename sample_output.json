@@ -44,8 +44,8 @@
     },
     "connection": {
         "effectiveType": "4g",
-        "rtt": 150,
-        "downlink": 1.75,
+        "rtt": 100,
+        "downlink": 1.6,
         "saveData": false
     },
     "plugins": [
@@ -222,18 +222,18 @@
             },
             {
                 "brand": "Chromium",
-                "version": "120.0.6099.72"
+                "version": "120.0.6099.129"
             },
             {
                 "brand": "Google Chrome",
-                "version": "120.0.6099.72"
+                "version": "120.0.6099.129"
             }
         ],
         "mobile": false,
         "model": "",
         "platform": "Windows",
         "platformVersion": "10.0.0",
-        "uaFullVersion": "120.0.6099.72"
+        "uaFullVersion": "120.0.6099.129"
     },
     "darkmode": true,
     "availabeFonts": [
@@ -6610,9 +6610,9 @@
     "is_bot": true,
     "status": "pass",
     "stack_worker": [
-        6344,
+        6343,
         5767,
-        79.9584055459272
+        80.09722222222223
     ],
     "timing_worker": 0.09999990463256836,
     "gl": {
