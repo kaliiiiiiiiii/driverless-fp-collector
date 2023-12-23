@@ -1,13 +1,13 @@
 import asyncio
 import os
-import motor.motor_asyncio
-from concurrent import futures
-
-import orjson
-from aiohttp import web
 import datetime
+import orjson
+
+from concurrent import futures
+from aiohttp import web
+import motor.motor_asyncio
 import pymongo.errors
-import ssl
+import json
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,9 +18,15 @@ class DataBase:
         self._client = motor.motor_asyncio.AsyncIOMotorClient()
         self._db = self.client["fingerprints"]
         self._entries = self.db["entries"]
+        self._stats = self.db["stats"]
+        try:
+            await self.db.validate_collection("entries")  # Try to validate a collection
+        except pymongo.errors.OperationFailure:  # If the collection doesn't exist
+            await self.entries.create_index("ip", unique=True, name="ip", )
+            await self.stats.insert_one({})
         self._loop = asyncio.get_running_loop()
         self._pool = futures.ThreadPoolExecutor(max_workers=max_workers)
-        # await self.entries.create_index({"ip": 1}, {"unique": "true"})
+        await self.entries.create_index("ip", unique=True, name="ip", )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -35,18 +41,64 @@ class DataBase:
 
     async def add_fp_entry(self, ip: str, fp: bytes):
         fp = await self._load_json(fp)
-        await self.entries.insert_one({"ip": ip, "fp": fp, "timestamp": datetime.datetime.utcnow()})
+        try:
+            await self.entries.insert_one({"ip": ip, "fp": fp, "timestamp": datetime.datetime.utcnow()})
+            stats = await self.stats.find_one({})
+            stats = await self._loop.run_in_executor(self._pool, lambda: self.update_stats(entry=fp, stats=stats))
+            await self.stats.find_one_and_replace({},stats)
+        except pymongo.errors.DuplicateKeyError:
+            pass
+
+    def update_stats(self, entry, stats=None, path: str = ""):
+        if stats is None:
+            stats = {}
+        for key, value in entry.items():
+            if value is not None:
+                serialized_key = json.dumps(key)
+                if path:
+                    path += "."
+                current_path = path + serialized_key
+                _type = type(value)
+
+                if _type in [int, float, str, bool]:
+                    stats_key = current_path + "." + json.dumps(value)
+                    if stats_key not in stats:
+                        stats[stats_key] = 1
+                    else:
+                        stats[stats_key] += 1
+                elif _type is dict:
+                    stats = self.update_stats(value, stats, current_path)
+                elif _type is list:
+                    for item in value:
+                        sub_key = current_path + ".[" + json.dumps(item) + "]"
+                        if sub_key not in stats:
+                            stats[sub_key] = 1
+                        else:
+                            stats[sub_key] += 1
+                        if type(item) is dict:
+                            stats = self.update_stats(item, stats, current_path)
+                else:
+                    raise ValueError(f"Unsupported type: {type(value)}")
+
+        return stats
+
+
+
     @property
     def client(self) -> motor.motor_asyncio.AsyncIOMotorClient:
         return self._client
 
     @property
-    def db(self):
+    def db(self) -> motor.motor_asyncio.AsyncIOMotorDatabase:
         return self._db
 
     @property
-    def entries(self):
+    def entries(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
         return self._entries
+
+    @property
+    def stats(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
+        return self._stats
 
 
 class Server:
@@ -83,10 +135,8 @@ class Server:
     async def api_log(self, request: web.BaseRequest):
         data = await request.read()
         ip = request.remote
-        try:
-            await self.db.add_fp_entry(ip, data)
-        except pymongo.errors.DuplicateKeyError:
-            return web.Response(text='Fingerprint already in database', status=500)
+        await self.db.add_fp_entry(ip, data)
+
         return web.Response(text='OK')
 
     @property
