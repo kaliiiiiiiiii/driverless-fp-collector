@@ -70,13 +70,13 @@ class Server:
         async for _document in self.db.get_paths(collection):
             if document:
                 await response.write(document+b",\n")
-            del _document["_id"]
             # noinspection PyProtectedMember
             document = await self.db._dump_json(_document)
         if document:
             await response.write(document)
         await response.write(b"]")
         await response.write_eof()
+        return response
 
     @property
     def db(self) -> DataBase:

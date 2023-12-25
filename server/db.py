@@ -1,3 +1,4 @@
+import bson
 import motor.motor_asyncio
 import pymongo.errors
 import json
@@ -9,7 +10,10 @@ import time
 import math
 import typing
 import uuid
-
+from pymongo.write_concern import WriteConcern
+from pymongo.read_concern import ReadConcern
+import bson
+from hashlib import sha1
 from concurrent import futures
 
 _dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +25,9 @@ class DataBase:
         self._client = motor.motor_asyncio.AsyncIOMotorClient()
         self._db = self.client["fingerprints"]
         self._entries = self.db["a_entries"]
+        self._values = self.db["a_values"]  # .with_options(write_concern=WriteConcern(w="majority"),
+        #     read_concern=ReadConcern("majority"))
+        self._val_map = {}
 
         self._all_path_collections = ["a_paths", "bots", "windows", "linux", "ios", "android", "mac", "other"]
 
@@ -39,6 +46,7 @@ class DataBase:
         except pymongo.errors.OperationFailure:  # If the collection doesn't exist
             await self.entries.create_index("cookie", unique=True, name="cookie")
             await self.ips.create_index("ip", unique=True, name="ip")
+            await self.values.create_index("v", unique=True, name="value")
             for name in self._all_path_collections:
                 await self.db[name].create_index("p", unique=True, name="paths")
 
@@ -71,6 +79,40 @@ class DataBase:
         else:
             raise Exception(res["lastErrorObject"])
 
+    async def parse_fp(self, fp: typing.Union[list, str, int, float, dict]):
+        _type = type(fp)
+        if _type is dict:
+            _values = []
+            _keys = fp.keys()
+            _dict = {}
+            for key, value in fp.items():
+                _values.append(self.parse_fp(value))
+            _values = await asyncio.gather(*_values)
+            for key, value in zip(_keys, _values):
+                _dict[key] = value
+            return _dict
+        elif _type is list:
+            _list = []
+            for item in fp:
+                _list.append(self.parse_fp(item))
+            return await asyncio.gather(*_list)
+        else:
+            fp = json.dumps(fp)
+            _hash = sha1(fp.encode()).hexdigest()
+            val_id = self._val_map.get(_hash)
+            if not val_id:
+                try:
+                    res = await self.values.insert_one({"v": fp})
+                    val_id = res.inserted_id
+                    self._val_map[_hash] = val_id
+                except pymongo.errors.DuplicateKeyError:
+                    val_id = self._val_map.get(_hash)
+                    if not val_id:
+                        res = await self.values.find_one({"v": fp})
+                        val_id = res.get("_id")
+                        self._val_map[_hash] = val_id
+            return val_id
+
     async def add_fp_entry(self, ip: str, cookie: str, fp: bytes):
         _time = math.floor(time.time())
         ip_doc = await self.ips.find_one({"ip": ip})
@@ -94,6 +136,9 @@ class DataBase:
                 pass
 
         fp = await self._load_json(fp)
+        parsed = await self.parse_fp(fp)
+        if fp.get("status") != "pass":
+            return
         if cookie is None:
             cookie = "NoCookie_" + uuid.uuid4().hex
         platform = fp["HighEntropyValues"]["platform"]
@@ -102,6 +147,8 @@ class DataBase:
 
         if is_bot:
             collections.append(self.bots)
+        if is_bot is True:
+            pass
         elif mobile:
             if platform in ["Android", "null", "Linux", "Linux aarch64"] or platform[:10] == "Linux armv":
                 collections.append(self.android)
@@ -121,12 +168,15 @@ class DataBase:
 
         try:
             await self.entries.insert_one(
-                {"ip": ip, "cookie": cookie, "fp": fp, "timestamp": _time})
+                {"ip": ip, "cookie": cookie, "fp": parsed, "timestamp": _time})
         except pymongo.errors.DuplicateKeyError:
             pass
         else:
-            cors = await self._loop.run_in_executor(self._pool, lambda: self.parse_paths(collections, fp))
+            start = time.monotonic()
+            cors = self.parse_paths(collections, parsed)
+            _time = time.monotonic() - start
             await asyncio.gather(*cors)
+            return
 
     def parse_paths(self, collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection],
                     entry, path: str = None) -> list:
@@ -141,9 +191,9 @@ class DataBase:
                 current_path = path + serialized_key
                 _type = type(value)
 
-                if _type in [int, float, str, bool]:
+                if _type is bson.ObjectId:
                     cors.append(self._on_path(collections, current_path, [value], is_list=False))
-                elif _type is list:
+                elif _type is list: # todo: handle lists correctly
                     cors.append(self._on_path(collections, current_path, value, is_list=True))
                 elif _type is dict:
                     cors.extend(self.parse_paths(collections, value, current_path))
@@ -151,7 +201,8 @@ class DataBase:
                     raise ValueError(f"Unsupported type: {type(value)}")
         return cors
 
-    async def _on_path(self, collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection], path: str,
+    @staticmethod
+    async def _on_path(collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection], path: str,
                        values: typing.List[typing.Union[list, str, int, float, bool]],
                        is_list: bool = False):
         for collection in collections:
@@ -159,19 +210,34 @@ class DataBase:
                 await collection.insert_one({"p": path, "l": is_list})
             except pymongo.errors.DuplicateKeyError:
                 pass
-        for value in values:
-            value = json.dumps(value).replace(".", "\uFF0E").replace("$", '\uFF04')
+        coro_s = []
+        for val_id in values:
+            if type(val_id) != bson.ObjectId:
+                print()
             for collection in collections:
-                await collection.update_one(
+                coro_s.append(collection.update_one(
                     {"p": path},
-                    {"$inc": {f"values.{value}": 1}}
-                )
+                    {"$inc": {f"v.{val_id}": 1}}
+                ))
+        await asyncio.gather(*coro_s)
 
-    async def get_paths(self, collection: str = None):
+    async def process_path(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> typing.Tuple[
+        str, typing.Dict[str, str]]:
+        path = document["p"]
+        values = {}
+        for val_id, count in document["v"].items():
+            value = await self.values.find_one({"_id": bson.ObjectId(val_id)})
+            value = value["v"]
+            values[value] = count
+
+        return path, values
+
+    async def get_paths(self, collection: str = None) -> typing.AsyncIterable[typing.Tuple[str, typing.Dict[str, str]]]:
         if collection is None:
             collection = "a_paths"
         assert collection in self._all_path_collections
         async for document in self.db[collection].find():
+            document = await self.process_path(document)
             yield document
 
     @property
@@ -221,3 +287,7 @@ class DataBase:
     @property
     def ips(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
         return self._ips
+
+    @property
+    def values(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
+        return self._values
