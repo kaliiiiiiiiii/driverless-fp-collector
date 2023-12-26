@@ -1,4 +1,3 @@
-import bson
 import motor.motor_asyncio
 import pymongo.errors
 import json
@@ -10,8 +9,6 @@ import time
 import math
 import typing
 import uuid
-from pymongo.write_concern import WriteConcern
-from pymongo.read_concern import ReadConcern
 import bson
 from hashlib import sha1
 from concurrent import futures
@@ -25,8 +22,7 @@ class DataBase:
         self._client = motor.motor_asyncio.AsyncIOMotorClient()
         self._db = self.client["fingerprints"]
         self._entries = self.db["a_entries"]
-        self._values = self.db["a_values"]  # .with_options(write_concern=WriteConcern(w="majority"),
-        #     read_concern=ReadConcern("majority"))
+        self._values = self.db["a_values"]
         self._val_map = {}
 
         self._all_path_collections = ["a_paths", "bots", "windows", "linux", "ios", "android", "mac", "other"]
@@ -65,52 +61,49 @@ class DataBase:
     async def _dump_json(self, data) -> bytes:
         return await self._loop.run_in_executor(self._pool, lambda: orjson.dumps(data))
 
-    async def _find_and_modify(self, collection: str, **kwargs):
-        res = await self.db.command(
-            'findAndModify',
-            collection,
-            **kwargs
-        )
-        value_doc = res.get("value")
-        if value_doc:
-            return value_doc
-        elif res.get("lastErrorObject", {}).get("upserted"):
-            return {"_id": res["lastErrorObject"]["upserted"]}
-        else:
-            raise Exception(res["lastErrorObject"])
+    async def _index_value(self, value):
+        value = json.dumps(value)
+        _hash = sha1(value.encode()).hexdigest()
+        val_id = self._val_map.get(_hash)
+        if not val_id:
+            try:
+                res = await self.values.insert_one({"v": value})
+                val_id = res.inserted_id
+                self._val_map[_hash] = val_id
+            except pymongo.errors.DuplicateKeyError:
+                val_id = self._val_map.get(_hash)
+                if not val_id:
+                    res = await self.values.find_one({"v": value})
+                    val_id = res.get("_id")
+                    self._val_map[_hash] = val_id
+        return val_id
 
-    async def parse_fp(self, fp: typing.Union[list, str, int, float, dict]):
+    async def get_value(self, value_id: bson.ObjectId):
+        value = await self.values.find_one({"_id": bson.ObjectId(value_id)})
+        value = value.get("v")
+        if not value:
+            raise IndexError("Value isn't indexed in the database")
+        return value
+
+    async def index_values(self, fp: typing.Union[list, str, int, float, dict], as_value: bool = False):
         _type = type(fp)
-        if _type is dict:
+        if not as_value and _type is dict:
             _values = []
             _keys = fp.keys()
             _dict = {}
             for key, value in fp.items():
-                _values.append(self.parse_fp(value))
+                _values.append(self.index_values(value))
             _values = await asyncio.gather(*_values)
             for key, value in zip(_keys, _values):
                 _dict[key] = value
             return _dict
-        elif _type is list:
+        elif not as_value and _type is list:
             _list = []
             for item in fp:
-                _list.append(self.parse_fp(item))
+                _list.append(self.index_values(item, as_value=True))
             return await asyncio.gather(*_list)
         else:
-            fp = json.dumps(fp)
-            _hash = sha1(fp.encode()).hexdigest()
-            val_id = self._val_map.get(_hash)
-            if not val_id:
-                try:
-                    res = await self.values.insert_one({"v": fp})
-                    val_id = res.inserted_id
-                    self._val_map[_hash] = val_id
-                except pymongo.errors.DuplicateKeyError:
-                    val_id = self._val_map.get(_hash)
-                    if not val_id:
-                        res = await self.values.find_one({"v": fp})
-                        val_id = res.get("_id")
-                        self._val_map[_hash] = val_id
+            val_id = await self._index_value(fp)
             return val_id
 
     async def add_fp_entry(self, ip: str, cookie: str, fp: bytes):
@@ -136,7 +129,7 @@ class DataBase:
                 pass
 
         fp = await self._load_json(fp)
-        parsed = await self.parse_fp(fp)
+        parsed = await self.index_values(fp)
         if fp.get("status") != "pass":
             return
         if cookie is None:
@@ -193,7 +186,7 @@ class DataBase:
 
                 if _type is bson.ObjectId:
                     cors.append(self._on_path(collections, current_path, [value], is_list=False))
-                elif _type is list: # todo: handle lists correctly
+                elif _type is list:  # todo: handle lists correctly
                     cors.append(self._on_path(collections, current_path, value, is_list=True))
                 elif _type is dict:
                     cors.extend(self.parse_paths(collections, value, current_path))
@@ -212,8 +205,8 @@ class DataBase:
                 pass
         coro_s = []
         for val_id in values:
-            if type(val_id) != bson.ObjectId:
-                print()
+            if type(val_id) is not bson.ObjectId:
+                raise ValueError("got other than ObjectId as id")
             for collection in collections:
                 coro_s.append(collection.update_one(
                     {"p": path},
@@ -221,13 +214,12 @@ class DataBase:
                 ))
         await asyncio.gather(*coro_s)
 
-    async def process_path(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> typing.Tuple[
-        str, typing.Dict[str, str]]:
+    async def _process_path_document(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> typing.Tuple[
+            str, typing.Dict[str, str]]:
         path = document["p"]
         values = {}
         for val_id, count in document["v"].items():
-            value = await self.values.find_one({"_id": bson.ObjectId(val_id)})
-            value = value["v"]
+            value = await self.get_value(bson.ObjectId(val_id))
             values[value] = count
 
         return path, values
@@ -237,7 +229,7 @@ class DataBase:
             collection = "a_paths"
         assert collection in self._all_path_collections
         async for document in self.db[collection].find():
-            document = await self.process_path(document)
+            document = await self._process_path_document(document)
             yield document
 
     @property

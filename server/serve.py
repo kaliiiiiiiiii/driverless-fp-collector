@@ -25,6 +25,7 @@ class Server:
         app.add_routes([
             web.get("/", self.root),
             web.get("/iframe.html", self.iframe),
+            web.get("/favicon.ico", self.favicon),
             web.get("/example_page.html", self.example_page),
             web.get("/bundle.js", self.bundle),
             web.get("/api/v1/paths",self.paths),
@@ -52,6 +53,10 @@ class Server:
         if not request.cookies.get("driverless-fp-collector"):
             response.set_cookie("driverless-fp-collector", uuid.uuid4().hex, samesite='Lax')
         return response
+
+    @staticmethod
+    async def favicon(request: web.BaseRequest):
+        return web.FileResponse(f"{_dir}/files/favicon.png")
 
     async def api_log(self, request: web.BaseRequest):
         data = await request.read()
