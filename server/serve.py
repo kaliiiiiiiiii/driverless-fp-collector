@@ -1,56 +1,13 @@
-import asyncio
-import os
-import motor.motor_asyncio
-from concurrent import futures
+import uuid
+import faulthandler
 
-import orjson
 from aiohttp import web
-import datetime
-import pymongo.errors
-import ssl
-
-_dir = os.path.dirname(os.path.abspath(__file__))
+from db import DataBase, _dir
 
 
-class DataBase:
-
-    async def __aenter__(self, max_workers: int = 5):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient()
-        self._db = self.client["fingerprints"]
-        self._entries = self.db["entries"]
-        self._loop = asyncio.get_running_loop()
-        self._pool = futures.ThreadPoolExecutor(max_workers=max_workers)
-        # await self.entries.create_index({"ip": 1}, {"unique": "true"})
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self._pool.shutdown()
-        self.client.close()
-
-    async def _load_json(self, data: bytes):
-        return await self._loop.run_in_executor(self._pool, lambda: orjson.loads(data))
-
-    async def _dump_json(self, data) -> bytes:
-        return await self._loop.run_in_executor(self._pool, lambda: orjson.dumps(data))
-
-    async def add_fp_entry(self, ip: str, fp: bytes):
-        fp = await self._load_json(fp)
-        await self.entries.insert_one({"ip": ip, "fp": fp, "timestamp": datetime.datetime.utcnow()})
-    @property
-    def client(self) -> motor.motor_asyncio.AsyncIOMotorClient:
-        return self._client
-
-    @property
-    def db(self):
-        return self._db
-
-    @property
-    def entries(self):
-        return self._entries
 
 
 class Server:
-    routes = web.RouteTableDef()
 
     def __init__(self):
         pass
@@ -65,9 +22,13 @@ class Server:
 
     def run(self):
         app = web.Application()
-        app.add_routes(self.routes)
         app.add_routes([
-            web.static('/', f"{_dir}/files", ),
+            web.get("/", self.root),
+            web.get("/iframe.html", self.iframe),
+            web.get("/favicon.ico", self.favicon),
+            web.get("/example_page.html", self.example_page),
+            web.get("/bundle.js", self.bundle),
+            web.get("/api/v1/paths",self.paths),
             web.post('/api/v1/logger', self.api_log)
         ])
 
@@ -75,19 +36,52 @@ class Server:
         app.on_startup.append(self._init)
         web.run_app(app, host="0.0.0.0")
 
-    # noinspection PyMethodParameters
-    @routes.get("/")
-    async def root(request: web.BaseRequest):
+    async def root(self, request: web.BaseRequest):
         raise web.HTTPFound('example_page.html')
+
+    @staticmethod
+    async def bundle(request: web.BaseRequest):
+        return web.FileResponse(f"{_dir}/files/bundle.js")
+
+    @staticmethod
+    async def example_page(request: web.BaseRequest):
+        return web.FileResponse(f"{_dir}/files/example_page.html")
+
+    @staticmethod
+    async def iframe(request: web.BaseRequest):
+        response = web.FileResponse(f"{_dir}/files/iframe.html")
+        if not request.cookies.get("driverless-fp-collector"):
+            response.set_cookie("driverless-fp-collector", uuid.uuid4().hex, samesite='Lax')
+        return response
+
+    @staticmethod
+    async def favicon(request: web.BaseRequest):
+        return web.FileResponse(f"{_dir}/files/favicon.png")
 
     async def api_log(self, request: web.BaseRequest):
         data = await request.read()
         ip = request.remote
-        try:
-            await self.db.add_fp_entry(ip, data)
-        except pymongo.errors.DuplicateKeyError:
-            return web.Response(text='Fingerprint already in database', status=500)
+        cookie = request.cookies.get("driverless-fp-collector")
+        await self.db.add_fp_entry(ip, cookie, data)
         return web.Response(text='OK')
+
+    async def paths(self,request: web.BaseRequest):
+        collection = request.query.get("collection")
+        response = web.StreamResponse()
+        response.content_type = "text/plain;charset=UTF-8"
+        await response.prepare(request)
+        document = None
+        await response.write(b"[")
+        async for _document in self.db.get_paths(collection):
+            if document:
+                await response.write(document+b",\n")
+            # noinspection PyProtectedMember
+            document = await self.db._dump_json(_document)
+        if document:
+            await response.write(document)
+        await response.write(b"]")
+        await response.write_eof()
+        return response
 
     @property
     def db(self) -> DataBase:
@@ -95,5 +89,6 @@ class Server:
 
 
 if __name__ == "__main__":
+    faulthandler.enable()
     server = Server()
     server.run()
