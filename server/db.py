@@ -128,8 +128,12 @@ class DataBase:
             except pymongo.errors.DuplicateKeyError:
                 pass
 
+        pre_json = time.monotonic()
         fp = await self._load_json(fp)
+        pre_index = time.monotonic()
+        print(f"loading json took: {pre_index-pre_json:_} s")
         parsed = await self.index_values(fp)
+        print(f"index values: {time.monotonic() - pre_json:_} s")
         if fp.get("status") != "pass":
             return
         if cookie is None:
@@ -165,33 +169,40 @@ class DataBase:
         except pymongo.errors.DuplicateKeyError:
             pass
         else:
-            start = time.monotonic()
-            cors = self.parse_paths(collections, parsed)
-            _time = time.monotonic() - start
+            pre_paths = time.monotonic()
+            cors = await self._loop.run_in_executor(self._pool, lambda: self.make_paths_futures(collections, parsed))
+            pre_save = time.monotonic()
+            print(f"val2paths took: {pre_save - pre_paths:_} s")
             await asyncio.gather(*cors)
+            print(f"saving paths took: {time.monotonic() -pre_save:_} s")
             return
 
-    def parse_paths(self, collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection],
-                    entry, path: str = None) -> list:
-        if path is None:
-            path = ""
-        else:
-            path += "."
-        cors = []
-        for key, value in entry.items():
-            if value is not None:
+    def val2paths(self, values, path: str = None) -> typing.Iterable[typing.Union[str, any]]:
+        _type = type(values)
+        if _type is dict:
+            if path is None:
+                path = ""
+            else:
+                path += "."
+
+            for key, value in values.items():
                 serialized_key = json.dumps(key)
                 current_path = path + serialized_key
-                _type = type(value)
+                yield from self.val2paths(value, current_path)
+        else:
+            if path is None:
+                path = ""
+            yield path, values
 
-                if _type is bson.ObjectId:
-                    cors.append(self._on_path(collections, current_path, [value], is_list=False))
-                elif _type is list:  # todo: handle lists correctly
-                    cors.append(self._on_path(collections, current_path, value, is_list=True))
-                elif _type is dict:
-                    cors.extend(self.parse_paths(collections, value, current_path))
-                else:
-                    raise ValueError(f"Unsupported type: {type(value)}")
+    def make_paths_futures(self, collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection],parsed) -> typing.List[asyncio.Task]:
+        cors = []
+        for path, value in self.val2paths(parsed):
+            if type(value) is list:
+                is_list = True
+            else:
+                is_list = False
+                value = [value]
+            cors.append(self._loop.create_task(self._on_path(collections, path, value, is_list=is_list)))
         return cors
 
     @staticmethod
@@ -214,8 +225,9 @@ class DataBase:
                 ))
         await asyncio.gather(*coro_s)
 
-    async def _process_path_document(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> typing.Tuple[
-            str, typing.Dict[str, str]]:
+    async def _process_path_document(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> \
+    typing.Tuple[
+        str, typing.Dict[str, str]]:
         path = document["p"]
         values = {}
         for val_id, count in document["v"].items():
