@@ -13,6 +13,7 @@ import bson
 import logging
 from hashlib import sha1
 from concurrent import futures
+from collections import defaultdict
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -70,12 +71,15 @@ class DataBase:
                     self._val_map[_hash] = val_id
         return val_id
 
-    async def _get_value(self, value_id: bson.ObjectId):
+    async def _get_value(self, value_id: bson.ObjectId, load_json:bool=True):
         value = await self.values.find_one({"_id": bson.ObjectId(value_id)})
         value = value.get("v")
         if not value:
             raise IndexError("Value isn't indexed in the database")
-        return json.loads(value)
+        if load_json:
+            return json.loads(value)
+        else:
+            return value
 
     async def index_values(self, fp: typing.Union[list, str, int, float, dict], as_value: bool = False):
         _type = type(fp)
@@ -102,10 +106,14 @@ class DataBase:
         _type = type(fp)
         if _type is dict:
             _values = []
-            _keys = fp.keys()
+            _keys = []
             _dict = {}
             for key, value in fp.items():
                 _values.append(self.get_values(value))
+                if type(key) is bson.ObjectId:
+                    _keys.append(self._get_value(key, load_json=False))
+                else:
+                    _keys.append(key)
             _values = await asyncio.gather(*_values)
             for key, value in zip(_keys, _values):
                 _dict[key] = value
@@ -159,7 +167,7 @@ class DataBase:
             platform = fp["HighEntropyValues"]["platform"]
             mobile = fp["HighEntropyValues"]["mobile"]
             is_bot = fp["is_bot"]
-            fp["mainVersion"] = fp["HighEntropyValues"]["uaFullVersion"].split(".")[0]
+            fp["mainVersion"] = int(fp["HighEntropyValues"]["uaFullVersion"].split(".")[0])
 
             if is_bot:
                 fp["type"] = "bot"
@@ -179,7 +187,6 @@ class DataBase:
             elif platform in ["Linux", "Linux aarch64", "Linux i686", "Linux i686 on x86_64",
                               "Linux ppc64", "Linux x86_64"] or platform[:10] == "Linux armv":
                 fp["type"] = "linux"
-            else:
                 fp["type"] = "other"
 
             pre_index = time.monotonic()
@@ -204,6 +211,27 @@ class DataBase:
             if path is None:
                 path = ""
             yield path, values
+
+    async def compile_paths(self, query:dict=None):
+        if not query:
+            query = {}
+
+        query = await self.index_values(query)
+
+        def parse_entry(_entry:dict, _paths:dict):
+            for path, values in self.val2paths(_entry):
+                if type(values) is list:
+                    for value in values:
+                        _paths[path][str(value)] += 1
+                else:
+                    _paths[path][str(values)] += 1
+        paths = defaultdict(lambda:defaultdict(lambda: 0))
+
+        coro = []
+        async for entry in self.fingerprints.find(query):
+            coro.append(self._loop.run_in_executor(self._pool, lambda: parse_entry(entry, paths)))
+        await asyncio.gather(*coro)
+        return paths
 
     @property
     def client(self) -> motor.motor_asyncio.AsyncIOMotorClient:

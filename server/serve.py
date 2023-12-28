@@ -1,6 +1,9 @@
+import json
 import uuid
 import faulthandler
 
+import bson
+import orjson
 from aiohttp import web
 from db import DataBase, _dir, logger
 import logging
@@ -34,7 +37,9 @@ class Server:
             web.get("/favicon.ico", self.favicon),
             web.get("/example_page.html", self.example_page),
             web.get("/bundle.js", self.bundle),
-            web.post('/api/v1/logger', self.api_log)
+            web.post('/api/v1/logger', self.api_log),
+            web.get('/api/v1/compile', self.compile),
+            web.get('/api/v1/get_val', self.get_val)
         ])
 
         app.on_cleanup.append(self._cleanup)
@@ -71,6 +76,22 @@ class Server:
         cookie = request.cookies.get("driverless-fp-collector")
         await self.db.add_fp_entry(ip, cookie, data)
         return web.Response(text='OK')
+
+    async def compile(self, request: web.BaseRequest):
+        query = request.query.get("q", {})
+        if query:
+            query = json.loads(query)
+        if "_id" in query:
+            del query["_id"]
+        paths = await self.db.compile_paths(query)
+        return web.Response(body=orjson.dumps(paths), content_type="application/json")
+
+    async def get_val(self, request: web.BaseRequest):
+        _id = request.query["id"]
+        # noinspection PyProtectedMember
+        val = await self.db._get_value(value_id=bson.ObjectId(_id), load_json=False)
+        return web.Response(text=val, content_type="application/json")
+
 
     @property
     def db(self) -> DataBase:
