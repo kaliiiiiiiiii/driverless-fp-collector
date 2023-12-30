@@ -1,10 +1,19 @@
+import json
 import uuid
 import faulthandler
 
+import bson
+import orjson
 from aiohttp import web
-from db import DataBase, _dir
+from db import DataBase, _dir, logger
+import logging
 
 
+async def logger_middleware(request, handler):
+    try:
+        return await handler(request)
+    except Exception as Argument:
+        logger.exception("Error while handling request:")
 
 
 class Server:
@@ -28,13 +37,13 @@ class Server:
             web.get("/favicon.ico", self.favicon),
             web.get("/example_page.html", self.example_page),
             web.get("/bundle.js", self.bundle),
-            web.get("/api/v1/paths",self.paths),
-            web.post('/api/v1/logger', self.api_log)
+            web.post('/api/v1/logger', self.api_log),
+            web.get('/api/v1/compile', self.compile)
         ])
 
         app.on_cleanup.append(self._cleanup)
         app.on_startup.append(self._init)
-        web.run_app(app, host="0.0.0.0")
+        web.run_app(app, host="0.0.0.0", port=80)
 
     async def root(self, request: web.BaseRequest):
         raise web.HTTPFound('example_page.html')
@@ -60,28 +69,22 @@ class Server:
 
     async def api_log(self, request: web.BaseRequest):
         data = await request.read()
+        if len(data) > 500_000:
+            raise ValueError("Got more than 500_000 data, aborting")
         ip = request.remote
         cookie = request.cookies.get("driverless-fp-collector")
         await self.db.add_fp_entry(ip, cookie, data)
         return web.Response(text='OK')
 
-    async def paths(self,request: web.BaseRequest):
-        collection = request.query.get("collection")
-        response = web.StreamResponse()
-        response.content_type = "text/plain;charset=UTF-8"
-        await response.prepare(request)
-        document = None
-        await response.write(b"[")
-        async for _document in self.db.get_paths(collection):
-            if document:
-                await response.write(document+b",\n")
-            # noinspection PyProtectedMember
-            document = await self.db._dump_json(_document)
-        if document:
-            await response.write(document)
-        await response.write(b"]")
-        await response.write_eof()
-        return response
+    async def compile(self, request: web.BaseRequest):
+        query = request.query.get("q", {})
+        if query:
+            query = json.loads(query)
+        if "_id" in query:
+            del query["_id"]
+        paths = await self.db.compile_paths(query)
+        return web.Response(body=orjson.dumps(paths), content_type="application/json")
+
 
     @property
     def db(self) -> DataBase:
@@ -89,6 +92,7 @@ class Server:
 
 
 if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
     faulthandler.enable()
     server = Server()
     server.run()

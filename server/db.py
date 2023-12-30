@@ -1,3 +1,5 @@
+import sys
+
 import motor.motor_asyncio
 import pymongo.errors
 import json
@@ -8,43 +10,39 @@ import os
 import time
 import math
 import typing
-import uuid
 import bson
-from hashlib import sha1
+import logging
 from concurrent import futures
+from collections import defaultdict
 
 _dir = os.path.dirname(os.path.abspath(__file__))
+
+logger = logging.getLogger("driverless-fp-collector")
+logging.basicConfig()
 
 
 class DataBase:
 
-    async def __aenter__(self, max_workers: int = 10):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient()
+    async def __aenter__(self, host:str=None,max_workers: int = 10):
+        args = sys.argv
+        if not host:
+            if len(args) > 1:
+                url = args[1]
+            else:
+                url = 'localhost:27017'
+            host = [url]
+        self._client = motor.motor_asyncio.AsyncIOMotorClient(host=host)
         self._db = self.client["fingerprints"]
-        self._entries = self.db["a_entries"]
-        self._values = self.db["a_values"]
+        self._entries = self.db["entries"]
+        self._fingerprints = self.db["fingerprints"]
         self._val_map = {}
 
-        self._all_path_collections = ["a_paths", "bots", "windows", "linux", "ios", "android", "mac", "other"]
-
-        self._paths = self.db["a_paths"]
-        self._bots = self.db["bots"]
-        self._windows = self.db["windows"]
-        self._linux = self.db["linux"]
-        self._ios = self.db["ios"]
-        self._android = self.db["android"]
-        self._mac = self.db["mac"]
-        self._other = self.db["other"]
-
-        self._ips = self.db["a_ips"]
+        self._ips = self.db["ips"]
         try:
             await self.db.validate_collection("entries")  # Try to validate a collection
         except pymongo.errors.OperationFailure:  # If the collection doesn't exist
             await self.entries.create_index("cookie", unique=True, name="cookie")
             await self.ips.create_index("ip", unique=True, name="ip")
-            await self.values.create_index("v", unique=True, name="value")
-            for name in self._all_path_collections:
-                await self.db[name].create_index("p", unique=True, name="paths")
 
         self._loop = asyncio.get_running_loop()
         self._pool = futures.ThreadPoolExecutor(max_workers=max_workers)
@@ -61,55 +59,9 @@ class DataBase:
     async def _dump_json(self, data) -> bytes:
         return await self._loop.run_in_executor(self._pool, lambda: orjson.dumps(data))
 
-    async def _index_value(self, value):
-        value = json.dumps(value)
-        _hash = sha1(value.encode()).hexdigest()
-        val_id = self._val_map.get(_hash)
-        if not val_id:
-            try:
-                res = await self.values.insert_one({"v": value})
-                val_id = res.inserted_id
-                self._val_map[_hash] = val_id
-            except pymongo.errors.DuplicateKeyError:
-                val_id = self._val_map.get(_hash)
-                if not val_id:
-                    res = await self.values.find_one({"v": value})
-                    val_id = res.get("_id")
-                    self._val_map[_hash] = val_id
-        return val_id
-
-    async def get_value(self, value_id: bson.ObjectId):
-        value = await self.values.find_one({"_id": bson.ObjectId(value_id)})
-        value = value.get("v")
-        if not value:
-            raise IndexError("Value isn't indexed in the database")
-        return value
-
-    async def index_values(self, fp: typing.Union[list, str, int, float, dict], as_value: bool = False):
-        _type = type(fp)
-        if not as_value and _type is dict:
-            _values = []
-            _keys = fp.keys()
-            _dict = {}
-            for key, value in fp.items():
-                _values.append(self.index_values(value))
-            _values = await asyncio.gather(*_values)
-            for key, value in zip(_keys, _values):
-                _dict[key] = value
-            return _dict
-        elif not as_value and _type is list:
-            _list = []
-            for item in fp:
-                _list.append(self.index_values(item, as_value=True))
-            return await asyncio.gather(*_list)
-        else:
-            val_id = await self._index_value(fp)
-            return val_id
-
     async def add_fp_entry(self, ip: str, cookie: str, fp: bytes):
         _time = math.floor(time.time())
         ip_doc = await self.ips.find_one({"ip": ip})
-        collections = [self.paths]
         if ip_doc:
             if ip_doc["flag"] > 10:
                 return
@@ -128,109 +80,80 @@ class DataBase:
             except pymongo.errors.DuplicateKeyError:
                 pass
 
-        fp = await self._load_json(fp)
-        parsed = await self.index_values(fp)
-        if fp.get("status") != "pass":
-            return
-        if cookie is None:
-            cookie = "NoCookie_" + uuid.uuid4().hex
-        platform = fp["HighEntropyValues"]["platform"]
-        mobile = fp["HighEntropyValues"]["mobile"]
-        is_bot = fp["is_bot"]
-
-        if is_bot:
-            collections.append(self.bots)
-        if is_bot is True:
-            pass
-        elif mobile:
-            if platform in ["Android", "null", "Linux", "Linux aarch64"] or platform[:10] == "Linux armv":
-                collections.append(self.android)
-            elif platform in ["iPhone", "iPod", "iPad"]:
-                collections.append(self.ios)
-            else:
-                collections.append(self.other)
-        elif platform in ["OS/2", "Pocket PC", "Windows", "Win16", "Win32", "WinCE"]:
-            collections.append(self.windows)
-        elif platform in ["Macintosh", "MacIntel", "MacPPC", "Mac68K"]:
-            collections.append(self.mac)
-        elif platform in ["Linux", "Linux aarch64", "Linux i686", "Linux i686 on x86_64",
-                          "Linux ppc64", "Linux x86_64"] or platform[:10] == "Linux armv":
-            collections.append(self.linux)
-        else:
-            collections.append(self.other)
-
+        _id = bson.ObjectId()
         try:
             await self.entries.insert_one(
-                {"ip": ip, "cookie": cookie, "fp": parsed, "timestamp": _time})
+                {"ip": ip, "cookie": cookie, "fp": _id, "timestamp": _time})
         except pymongo.errors.DuplicateKeyError:
             pass
         else:
-            start = time.monotonic()
-            cors = self.parse_paths(collections, parsed)
-            _time = time.monotonic() - start
-            await asyncio.gather(*cors)
-            return
+            pre_json = time.monotonic()
+            fp = await self._load_json(fp)
+            logger.debug(f"loading json took: {time.monotonic() - pre_json:_} s")
+            if fp.get("status") != "pass":
+                return
+            platform = fp["HighEntropyValues"]["platform"]
+            mobile = fp["HighEntropyValues"]["mobile"]
+            is_bot = fp["is_bot"]
+            fp["mainVersion"] = int(fp["HighEntropyValues"]["uaFullVersion"].split(".")[0])
 
-    def parse_paths(self, collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection],
-                    entry, path: str = None) -> list:
-        if path is None:
-            path = ""
-        else:
-            path += "."
-        cors = []
-        for key, value in entry.items():
-            if value is not None:
-                serialized_key = json.dumps(key)
-                current_path = path + serialized_key
-                _type = type(value)
-
-                if _type is bson.ObjectId:
-                    cors.append(self._on_path(collections, current_path, [value], is_list=False))
-                elif _type is list:  # todo: handle lists correctly
-                    cors.append(self._on_path(collections, current_path, value, is_list=True))
-                elif _type is dict:
-                    cors.extend(self.parse_paths(collections, value, current_path))
-                else:
-                    raise ValueError(f"Unsupported type: {type(value)}")
-        return cors
-
-    @staticmethod
-    async def _on_path(collections: typing.List[motor.motor_asyncio.AsyncIOMotorCollection], path: str,
-                       values: typing.List[typing.Union[list, str, int, float, bool]],
-                       is_list: bool = False):
-        for collection in collections:
-            try:
-                await collection.insert_one({"p": path, "l": is_list})
-            except pymongo.errors.DuplicateKeyError:
+            if is_bot:
+                fp["type"] = "bot"
+            if is_bot is True:
                 pass
-        coro_s = []
-        for val_id in values:
-            if type(val_id) is not bson.ObjectId:
-                raise ValueError("got other than ObjectId as id")
-            for collection in collections:
-                coro_s.append(collection.update_one(
-                    {"p": path},
-                    {"$inc": {f"v.{val_id}": 1}}
-                ))
-        await asyncio.gather(*coro_s)
+            elif mobile:
+                if platform in ["Android", "null", "Linux", "Linux aarch64"] or platform[:10] == "Linux armv":
+                    fp["type"] = "android"
+                elif platform in ["iPhone", "iPod", "iPad"]:
+                    fp["type"] = "ios"
+                else:
+                    fp["type"] = "other"
+            elif platform in ["OS/2", "Pocket PC", "Windows", "Win16", "Win32", "WinCE"]:
+                fp["type"] = "windows"
+            elif platform in ["Macintosh", "MacIntel", "MacPPC", "Mac68K"]:
+                fp["type"] = "mac"
+            elif platform in ["Linux", "Linux aarch64", "Linux i686", "Linux i686 on x86_64",
+                              "Linux ppc64", "Linux x86_64"] or platform[:10] == "Linux armv":
+                fp["type"] = "linux"
+                fp["type"] = "other"
+            fp["_id"] = _id
+            await self.fingerprints.insert_one(fp)
 
-    async def _process_path_document(self, document: typing.Dict[str, typing.Union[typing.Dict[str, str], str]]) -> typing.Tuple[
-            str, typing.Dict[str, str]]:
-        path = document["p"]
-        values = {}
-        for val_id, count in document["v"].items():
-            value = await self.get_value(bson.ObjectId(val_id))
-            values[value] = count
+    def val2paths(self, values, path: list = None) -> typing.Iterable[typing.Union[str, any]]:
+        _type = type(values)
+        if _type is dict:
+            if path is None:
+                path = []
 
-        return path, values
+            for key, value in values.items():
+                curr_path = path + [key]
+                yield from self.val2paths(value, curr_path)
+        else:
+            if path:
+                yield json.dumps(path), values
 
-    async def get_paths(self, collection: str = None) -> typing.AsyncIterable[typing.Tuple[str, typing.Dict[str, str]]]:
-        if collection is None:
-            collection = "a_paths"
-        assert collection in self._all_path_collections
-        async for document in self.db[collection].find():
-            document = await self._process_path_document(document)
-            yield document
+    async def compile_paths(self, query:dict=None):
+        if not query:
+            query = {}
+
+        def parse_entry(_entry:dict, _paths:dict):
+            for path, values in self.val2paths(_entry):
+                if type(values) is list:
+                    for value in values:
+                        _paths[path][json.dumps(value)] += 1
+                    if "l" not in _paths[path]:
+                        _paths[path]["l"] = defaultdict(lambda: 0)
+                    _paths[path]["l"][str(len(values))] += 1
+                else:
+                    _paths[path][json.dumps(values)] += 1
+        paths = defaultdict(lambda:defaultdict(lambda: 0))
+
+        coro = []
+        async for entry in self.fingerprints.find(query):
+            del entry["_id"]
+            coro.append(self._loop.run_in_executor(self._pool, lambda: parse_entry(entry, paths)))
+        await asyncio.gather(*coro)
+        return paths
 
     @property
     def client(self) -> motor.motor_asyncio.AsyncIOMotorClient:
@@ -245,41 +168,9 @@ class DataBase:
         return self._entries
 
     @property
-    def paths(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._paths
-
-    @property
-    def windows(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._windows
-
-    @property
-    def linux(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._linux
-
-    @property
-    def ios(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._ios
-
-    @property
-    def mac(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._mac
-
-    @property
-    def android(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._android
-
-    @property
-    def bots(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._bots
-
-    @property
-    def other(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._other
+    def fingerprints(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
+        return self._fingerprints
 
     @property
     def ips(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
         return self._ips
-
-    @property
-    def values(self) -> motor.motor_asyncio.AsyncIOMotorCollection:
-        return self._values
