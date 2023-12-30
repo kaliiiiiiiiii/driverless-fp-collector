@@ -10,7 +10,7 @@ import orjson
 
 
 class Client:
-    def __init__(self, host: str = "http://localhost:8080", max_workers=5):
+    def __init__(self, host: str = "http://localhost:80", max_workers=5):
         self._host = host
         self._max_workers = max_workers
         self._val_cache = {}

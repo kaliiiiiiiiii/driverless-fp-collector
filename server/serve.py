@@ -43,7 +43,7 @@ class Server:
 
         app.on_cleanup.append(self._cleanup)
         app.on_startup.append(self._init)
-        web.run_app(app, host="0.0.0.0")
+        web.run_app(app, host="0.0.0.0", port=80)
 
     async def root(self, request: web.BaseRequest):
         raise web.HTTPFound('example_page.html')
