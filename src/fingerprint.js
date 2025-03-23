@@ -317,8 +317,10 @@ async function getFingerprint(
         if (navigator.gpu) {
             const adapter = await navigator.gpu.requestAdapter();
             var info = {};
-            if (adapter) {
-                info = await adapter.requestAdapterInfo();
+            if (adapter && adapter.requestAdapterInfo) {
+                info = await adapter.requestAdapterInfo()
+            } else {
+                info = { error: 'deprecated' };
             }
             var res = { ...j(adapter), ...j(info) };
             return res;
